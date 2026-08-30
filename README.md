@@ -14,11 +14,20 @@ python3 test_loop.py      # 工具循环测试，不花钱
 python3 cli.py            # 开始对话（需要可用的 API key）
 ```
 
-凭据从上一级目录的 `.env` 读取（`OPENAI_API_KEY` / `OPENAI_BASE_URL` / `TEXT_MODEL`），
-也可以在 `manifest-agent/.env` 单独覆盖。用 `MANIFEST_MODEL` 指定本 agent 专用模型。
+凭据走环境变量，`llm.py` 会读当前目录或上一级目录的 `.env`：
 
-> 当前仓库根 `.env` 里的 openai-next key 已失效（401 Invalid token），
-> 换一个有效 key 即可直接对话；离线测试不受影响。
+```bash
+# manifest-agent/.env
+OPENAI_API_KEY=sk-...
+OPENAI_BASE_URL=https://api.openai.com/v1   # 或任何 OpenAI 兼容端点
+MANIFEST_MODEL=claude-sonnet-5              # 或 gpt-4o 等
+```
+
+任何 OpenAI 兼容的 `/chat/completions` 端点都能用，需要支持 function calling。
+`.env` 已在 `.gitignore` 里，不会被提交。
+
+> 注意：离线测试（`evals.py dry`、`test_loop.py`）不需要 key，也不花钱。
+> 真实对话路径尚未用有效 key 端到端验证过。
 
 ## 命令
 
@@ -47,18 +56,18 @@ test_loop.py   打桩测试工具循环与落盘
 ## 三个关键设计
 
 **语料是蒸馏的，不是检索的。** 显化博文重复度极高，切片进向量库检索出来是一堆同义
-鸡汤。[knowledge.py](manifest-agent/knowledge.py) 里的 9 个练习是「触发场景 / 步骤 /
+鸡汤。[knowledge.py](knowledge.py) 里的 9 个练习是「触发场景 / 步骤 /
 常见误区 / 做对了的迹象」四段式 SOP，全部写进 system prompt，约 2900 字。
 要加你收集的博主内容，就蒸馏成同样的形状追加进 `PRACTICES`，不要贴原文——
 方法论本身是公共领域的，原文表达不是。
 
-**每轮注入的是状态摘要，不是聊天记录。** [memory.py](manifest-agent/memory.py) 的
+**每轮注入的是状态摘要，不是聊天记录。** [memory.py](memory.py) 的
 `render()` 把愿望、限制性信念、情绪均值、连续打卡、近期日志压成十几行。对话历史只留
 最近 24 条，长期记忆完全靠 profile 承载。这样聊三个月上下文也不会爆。
 
 **安全筛查在模型之前，用正则。** 这个品类的用户里有相当比例正在低谷。
 「你的现实是你吸引来的」对刚失去母亲或刚被裁员的人是二次伤害，不能指望模型每次都想起来。
-[safety.py](manifest-agent/safety.py) 分五级：
+[safety.py](safety.py) 分五级：
 
 - `crisis` — 自伤风险。**直接禁用所有工具**，注入求助热线，本轮不谈任何显化内容
 - `distress` — 心理健康。禁止归因于用户，涉及用药明确不替代医生
@@ -86,7 +95,7 @@ python3 evals.py run 10         # 改 prompt 后跑，输出 evals_out.md
 - **v2 主动性**：`cli.py morning/evening/review` 已经能跑，但还需要真正的定时触发
   （cron 或 launchd）和推送通道。显化的本质是重复练习，被动等用户来聊留存会很差。
 - **v3 工具**：vision board 图像生成最契合——它是显化的经典实践，产出物也是天然的传播素材。
-  上一级 `ai.py` 里已有 `image()` 可以直接接。
+  照 `llm.py` 的写法加一个 `/images/generations` 调用即可。
 - **案例层**：真实显化故事存成结构化 JSON（诉求类型 / 卡点 / 转折 / 结果），
   几百条量级用关键词 + 一次 LLM 筛选就够，不需要向量库。案例必须改写脱敏。
 
