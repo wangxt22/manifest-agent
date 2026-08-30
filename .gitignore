@@ -1,0 +1,8 @@
+data/
+_evaltmp/
+_evalrun/
+_looptest/
+evals_out.md
+__pycache__/
+*.pyc
+.env
