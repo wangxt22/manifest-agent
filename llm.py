@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""OpenAI-compatible chat client (openai-next relay). Stdlib only, no dependencies.
+"""OpenAI-compatible chat client. Stdlib only, no dependencies.
 
-Reads credentials from the repo-root .env (OPENAI_API_KEY / OPENAI_BASE_URL / TEXT_MODEL),
-so this agent needs no config of its own.
+Defaults to DeepSeek. Any endpoint exposing /chat/completions with function calling
+works — set OPENAI_BASE_URL / MANIFEST_MODEL in .env to switch.
 """
 import json
 import os
@@ -10,37 +10,48 @@ import urllib.error
 import urllib.request
 
 _ROOT = os.path.dirname(os.path.abspath(__file__))
-_PARENT = os.path.dirname(_ROOT)
 
 
 def _load_env():
-    """Load .env from this dir then the repo root, without overriding real env vars."""
-    for path in (os.path.join(_ROOT, ".env"), os.path.join(_PARENT, ".env")):
-        if not os.path.exists(path):
-            continue
-        with open(path) as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    k, v = line.split("=", 1)
-                    os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+    """Load this directory's .env, without overriding real environment variables."""
+    path = os.path.join(_ROOT, ".env")
+    if not os.path.exists(path):
+        return
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
 
 
 _load_env()
 
-BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.openai-next.com/v1").rstrip("/")
-API_KEY = os.environ.get("OPENAI_API_KEY", "")
-MODEL = os.environ.get("MANIFEST_MODEL") or os.environ.get("TEXT_MODEL") or "claude-opus-5"
+# DEEPSEEK_API_KEY is checked first so a DeepSeek key doesn't need renaming.
+API_KEY = (
+    os.environ.get("DEEPSEEK_API_KEY")
+    or os.environ.get("OPENAI_API_KEY")
+    or ""
+)
+BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.deepseek.com/v1").rstrip("/")
+MODEL = os.environ.get("MANIFEST_MODEL") or os.environ.get("TEXT_MODEL") or "deepseek-chat"
 
-# The relay's WAF rejects urllib's default User-Agent with 403, so send a real one.
+# Some relays sit behind a WAF that rejects urllib's default User-Agent with 403.
 _UA = "curl/8.7.1"
+
+
+def configured():
+    """Whether a key is present — lets the UI show setup help instead of an error."""
+    return bool(API_KEY)
 
 
 def chat(messages, tools=None, max_tokens=2048, temperature=0.85, model=None):
     """POST /chat/completions. Returns the assistant message dict."""
     if not API_KEY:
         raise RuntimeError(
-            "未找到 OPENAI_API_KEY。请在项目根目录 .env 或 manifest-agent/.env 中设置。"
+            "没有找到 API key。在 manifest-agent/.env 里写一行：\n"
+            "  DEEPSEEK_API_KEY=sk-你的key\n"
+            "（key 在 https://platform.deepseek.com/api_keys 申请）"
         )
     payload = {
         "model": model or MODEL,

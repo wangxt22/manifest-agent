@@ -9,36 +9,44 @@
 
 ```bash
 cd manifest-agent
-python3 evals.py dry      # 离线自检，不花钱
-python3 test_loop.py      # 工具循环测试，不花钱
-python3 cli.py            # 开始对话（需要可用的 API key）
+python3 web.py            # 打开网页界面，浏览器会自动弹出
 ```
 
-凭据走环境变量，`llm.py` 会读当前目录或上一级目录的 `.env`：
+没有 API key 也能打开——界面能看，页面上会写着怎么配置。
+
+想真的能聊，去 [platform.deepseek.com](https://platform.deepseek.com/api_keys) 申请一个 key，
+在 `manifest-agent/` 目录里新建 `.env` 写一行：
 
 ```bash
-# manifest-agent/.env
-OPENAI_API_KEY=sk-...
-OPENAI_BASE_URL=https://api.openai.com/v1   # 或任何 OpenAI 兼容端点
-MANIFEST_MODEL=claude-sonnet-5              # 或 gpt-4o 等
+DEEPSEEK_API_KEY=sk-你的key
 ```
 
-任何 OpenAI 兼容的 `/chat/completions` 端点都能用，需要支持 function calling。
-`.env` 已在 `.gitignore` 里，不会被提交。
+然后重新 `python3 web.py`。DeepSeek 很便宜，充 10 块能聊很久。
 
-> 注意：离线测试（`evals.py dry`、`test_loop.py`）不需要 key，也不花钱。
-> 真实对话路径尚未用有效 key 端到端验证过。
+换别的模型就加两行覆盖默认值（任何 OpenAI 兼容的 `/chat/completions` 端点都行，
+需要支持 function calling）：
+
+```bash
+OPENAI_BASE_URL=https://api.openai.com/v1
+MANIFEST_MODEL=gpt-4o
+```
+
+`.env` 已在 `.gitignore` 里，不会被提交。
 
 ## 命令
 
 | 命令 | 作用 |
 |---|---|
-| `python3 cli.py` | 对话（`/state` 看记录 · `/review` 周回顾 · `/quit`） |
+| `python3 web.py` | 网页界面（推荐） |
+| `python3 cli.py` | 终端对话（`/state` 看记录 · `/review` 周回顾 · `/quit`） |
 | `python3 cli.py morning` | 早间意图设定 |
 | `python3 cli.py evening` | 晚间感恩收尾 |
 | `python3 cli.py review` | 基于近 7 天日志的周回顾 |
 | `python3 cli.py state` | 打印已积累的用户资料 |
 | `python3 evals.py list/dry/run` | 场景清单 / 离线自检 / 真实跑分 |
+| `python3 test_loop.py` | 打桩测试工具循环与落盘 |
+
+> 离线测试（`evals.py dry`、`test_loop.py`）不需要 key，也不花钱。
 
 ## 结构
 
@@ -48,6 +56,7 @@ safety.py      五级风险筛查（正则，不走模型）
 memory.py      profile.json + journal.jsonl，长期状态
 tools.py       模型可调用的 7 个记录工具
 agent.py       system prompt 组装 + 工具循环
+web.py         网页界面（标准库 http.server，无依赖）
 cli.py         终端界面
 evals.py       30 个回归场景
 test_loop.py   打桩测试工具循环与落盘
